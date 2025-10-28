@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bluesky Feed Topic Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-bebas {
+            font-family: 'Bebas Neue', cursive;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <main class="container mx-auto px-4 py-8">
+        <div id="vanta-bg" class="fixed top-0 left-0 w-full h-full -z-10"></div>
+        
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden backdrop-blur-sm bg-opacity-90">
+            <!-- Header Section -->
+            <div class="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
+                <h1 class="text-4xl font-bold font-bebas mb-2">Bluesky Feed Search</h1>
+                <p class="text-xl">Find trending topics from custom feeds</p>
+            </div>
+            
+            <!-- Search Mode Tabs -->
+            <div class="border-b border-gray-200">
+                <div class="flex">
+                    <button id="feedModeTab" class="flex-1 px-6 py-3 font-semibold bg-blue-50 text-blue-600 border-b-2 border-blue-600">
+                        Feed Search
+                    </button>
+                    <button id="globalModeTab" class="flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50">
+                        Global Search
+                    </button>
+                    <button id="firehoseModeTab" class="flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50">
+                        Firehose Stream
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Feed Search Form -->
+            <div id="feedSearchForm" class="p-6 border-b border-gray-200">
+                <form id="searchForm" class="space-y-4">
+                    <div>
+                        <label for="feedUri" class="block text-sm font-medium text-gray-700 mb-1">Feed URI</label>
+                        <input type="text" id="feedUri" name="feedUri" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               value="at://did:plc:u45hqzk7counfbwyg5edhmvi/app.bsky.feed.generator/aaadvxju4txkk"
+                               placeholder="at://did:plc:.../app.bsky.feed.generator/..." required>
+                        <p class="mt-1 text-xs text-gray-500">Uses app.bsky.feed.getFeed endpoint</p>
+                    </div>
+                    
+                    <div>
+                        <label for="topic" class="block text-sm font-medium text-gray-700 mb-1">Search Topic</label>
+                        <input type="text" id="topic" name="topic" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Enter keywords to search..." required>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="limit" class="block text-sm font-medium text-gray-700 mb-1">Posts to Fetch</label>
+                            <input type="number" id="limit" name="limit" min="10" max="100" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   value="50" required>
+                        </div>
+                        <div>
+                            <label for="minLikes" class="block text-sm font-medium text-gray-700 mb-1">Min Likes</label>
+                            <input type="number" id="minLikes" name="minLikes" min="0" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   value="5" required>
+                        </div>
+                        <div>
+                            <label for="minReposts" class="block text-sm font-medium text-gray-700 mb-1">Min Reposts</label>
+                            <input type="number" id="minReposts" name="minReposts" min="0" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   value="2" required>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <a href="https://bsky.app/profile/did:plc:u45hqzk7counfbwyg5edhmvi/feed/aaadvxju4txkk" 
+                           target="_blank" 
+                           class="text-sm text-blue-600 hover:text-blue-700 flex items-center">
+                            <i data-feather="external-link" class="mr-1 w-4 h-4"></i> View Source Feed
+                        </a>
+                        <button type="submit" 
+                                class="px-6 py-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors duration-200 flex items-center">
+                            <i data-feather="search" class="mr-2"></i> Search Feed
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Global Search Form -->
+            <div id="globalSearchForm" class="p-6 border-b border-gray-200 hidden">
+                <form id="globalForm" class="space-y-4">
+                    <div>
+                        <label for="globalQuery" class="block text-sm font-medium text-gray-700 mb-1">Search Query</label>
+                        <input type="text" id="globalQuery" name="globalQuery" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Search all of Bluesky..." required>
+                        <p class="mt-1 text-xs text-gray-500">Uses app.bsky.feed.searchPosts endpoint</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="globalLimit" class="block text-sm font-medium text-gray-700 mb-1">Results Limit</label>
+                            <input type="number" id="globalLimit" name="globalLimit" min="10" max="100" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   value="25" required>
+                        </div>
+                        <div>
+                            <label for="globalMinLikes" class="block text-sm font-medium text-gray-700 mb-1">Min Likes</label>
+                            <input type="number" id="globalMinLikes" name="globalMinLikes" min="0" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   value="10" required>
+                        </div>
+                        <div>
+                            <label for="sortOrder" class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+                            <select id="sortOrder" 
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="latest">Latest</option>
+                                <option value="top">Top</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end">
+                        <button type="submit" 
+                                class="px-6 py-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors duration-200 flex items-center">
+                            <i data-feather="search" class="mr-2"></i> Search Bluesky
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Firehose Stream Form -->
+            <div id="firehoseForm" class="p-6 border-b border-gray-200 hidden">
+                <div class="space-y-4">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h3 class="font-semibold text-blue-900 mb-2">Real-time Bluesky Firehose</h3>
+                        <p class="text-sm text-blue-800">Stream live posts, likes, follows, and other events from the entire Bluesky network in real-time using the JetStream WebSocket API.</p>
+                    </div>
+                    
+                    <div>
+                        <label for="firehoseFilter" class="block text-sm font-medium text-gray-700 mb-1">Filter Keywords (optional)</label>
+                        <input type="text" id="firehoseFilter" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Enter keywords to filter posts (e.g., NBA, basketball)">
+                        <p class="mt-1 text-xs text-gray-500">Leave empty to see all posts. Separate multiple keywords with commas.</p>
+                    </div>
+                    
+                    <div>
+                        <label for="collectionType" class="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+                        <select id="collectionType" 
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="app.bsky.feed.post">Posts Only</option>
+                            <option value="app.bsky.feed.like">Likes Only</option>
+                            <option value="app.bsky.graph.follow">Follows Only</option>
+                            <option value="">All Events</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <div id="streamStatus" class="flex items-center text-gray-500">
+                                <div class="w-2 h-2 rounded-full bg-gray-400 mr-2"></div>
+                                <span class="text-sm">Disconnected</span>
+                            </div>
+                            <span id="eventCount" class="text-sm text-gray-600">Events: 0</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="startFirehose" type="button"
+                                    class="px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center">
+                                <i data-feather="play" class="mr-2"></i> Start Stream
+                            </button>
+                            <button id="stopFirehose" type="button" disabled
+                                    class="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i data-feather="stop-circle" class="mr-2"></i> Stop Stream
+                            </button>
+                            <button id="clearFirehose" type="button"
+                                    class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors duration-200 flex items-center">
+                                <i data-feather="trash-2" class="mr-2"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div id="results" class="p-6 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Search Results (<span id="resultCount">0</span>)</h2>
+                    <button id="copyAll" 
+                            class="px-4 py-2 bg-purple-500 text-white text-sm font-semibold rounded-lg hover:bg-purple-600 transition-colors duration-200 flex items-center">
+                        <i data-feather="copy" class="mr-2"></i> Copy All URLs
+                    </button>
+                </div>
+                
+                <div id="postsContainer" class="space-y-4">
+                    <!-- Posts will be inserted here dynamically -->
+                </div>
+                
+                <div id="loading" class="text-center py-8 hidden">
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Searching the feed...</p>
+                </div>
+                
+                <div id="noResults" class="text-center py-8 hidden">
+                    <i data-feather="alert-circle" class="mx-auto text-gray-400 w-12 h-12"></i>
+                    <p class="mt-4 text-gray-600">No matching posts found. Try different keywords or adjust your filters.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API Documentation -->
+        <div class="max-w-4xl mx-auto mt-8 bg-white rounded-xl shadow-lg overflow-hidden p-6 backdrop-blur-sm bg-opacity-90">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">API Information</h2>
+            <div class="space-y-3 text-sm text-gray-700">
+                <div class="bg-blue-50 p-3 rounded">
+                    <h3 class="font-semibold text-blue-900 mb-1">Feed Search Mode</h3>
+                    <p class="text-blue-800"><strong>Endpoint:</strong> <code class="bg-blue-100 px-1 rounded">app.bsky.feed.getFeed</code></p>
+                    <p class="text-blue-800"><strong>API Host:</strong> https://public.api.bsky.app</p>
+                    <p class="text-blue-800 mt-1">Fetches posts from a specific custom feed generator and filters them locally based on your search criteria.</p>
+                </div>
+                
+                <div class="bg-purple-50 p-3 rounded">
+                    <h3 class="font-semibold text-purple-900 mb-1">Global Search Mode</h3>
+                    <p class="text-purple-800"><strong>Endpoint:</strong> <code class="bg-purple-100 px-1 rounded">app.bsky.feed.searchPosts</code></p>
+                    <p class="text-purple-800"><strong>API Host:</strong> https://public.api.bsky.app</p>
+                    <p class="text-purple-800 mt-1">Searches all public posts across Bluesky network using the AppView's search index. Uses CORS proxy for browser compatibility.</p>
+                </div>
+                
+                <div class="bg-green-50 p-3 rounded">
+                    <h3 class="font-semibold text-green-900 mb-1">Firehose Stream Mode</h3>
+                    <p class="text-green-800"><strong>Endpoint:</strong> <code class="bg-green-100 px-1 rounded">wss://jetstream2.us-east.bsky.network/subscribe</code></p>
+                    <p class="text-green-800"><strong>Protocol:</strong> WebSocket (JetStream)</p>
+                    <p class="text-green-800 mt-1">Real-time stream of all activity on Bluesky including posts, likes, follows, and more. This is a simplified JSON-based firehose that's easier to work with than the raw CBOR format.</p>
+                </div>
+                
+                <div class="bg-gray-50 p-3 rounded">
+                    <h3 class="font-semibold text-gray-900 mb-1">Authentication</h3>
+                    <p class="text-gray-700">These are public endpoints and do not require authentication. For authenticated requests (posting, liking, etc.), you would need to authenticate via <code class="bg-gray-200 px-1 rounded">com.atproto.server.createSession</code> and use the returned access token.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="max-w-4xl mx-auto mt-8 bg-white rounded-xl shadow-lg overflow-hidden p-6 backdrop-blur-sm bg-opacity-90">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">How to Use</h2>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-2">Feed Search Mode:</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-gray-700 ml-2">
+                        <li>Enter the Feed URI (default is your custom NBA feed)</li>
+                        <li>Enter keywords or topics you want to search for</li>
+                        <li>Set how many posts to fetch and minimum engagement thresholds</li>
+                        <li>Click "Search Feed" to find matching posts from that specific feed</li>
+                    </ol>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-2">Global Search Mode:</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-gray-700 ml-2">
+                        <li>Enter your search query (keywords, hashtags, etc.)</li>
+                        <li>Choose sort order (Latest or Top posts)</li>
+                        <li>Set minimum engagement threshold</li>
+                        <li>Click "Search Bluesky" to search across the entire network</li>
+                    </ol>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold text-gray-800 mb-2">Firehose Stream Mode:</h3>
+                    <ol class="list-decimal list-inside space-y-1 text-gray-700 ml-2">
+                        <li>Optionally add filter keywords to only see posts containing those terms</li>
+                        <li>Choose which type of events to stream (posts, likes, follows, or all)</li>
+                        <li>Click "Start Stream" to begin receiving real-time events</li>
+                        <li>Use "Stop Stream" to pause and "Clear" to remove all displayed events</li>
+                    </ol>
+                    <p class="mt-2 text-sm text-gray-600">
+                        <strong>Note:</strong> The firehose shows the last 100 events to prevent browser slowdown. This is a live stream of activity happening right now across all of Bluesky!
+                    </p>
+                </div>
+            </div>
+            <p class="mt-4 text-sm text-gray-600">
+                <i data-feather="info" class="inline w-4 h-4"></i> 
+                All searches use the public Bluesky API (https://public.api.bsky.app) with no authentication required.
+            </p>
+        </div>
+    </main>
+    
+    <script>
+        // Initialize Feather icons
+        feather.replace();
+        
+        // Initialize Vanta.js background
+        if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
+            VANTA.NET({
+                el: "#vanta-bg",
+                THREE: THREE,
+                color: 0x3b82f6,
+                backgroundColor: 0xf5f5f5,
+                points: 12,
+                maxDistance: 22,
+                spacing: 18
+            });
+        }
+        
+        // API Configuration
+        const BLUESKY_API = 'https://public.api.bsky.app';
+        
+        // Tab switching
+        const feedModeTab = document.getElementById('feedModeTab');
+        const globalModeTab = document.getElementById('globalModeTab');
+        const firehoseModeTab = document.getElementById('firehoseModeTab');
+        const feedSearchForm = document.getElementById('feedSearchForm');
+        const globalSearchForm = document.getElementById('globalSearchForm');
+        const firehoseForm = document.getElementById('firehoseForm');
+        
+        feedModeTab.addEventListener('click', () => {
+            feedModeTab.className = 'flex-1 px-6 py-3 font-semibold bg-blue-50 text-blue-600 border-b-2 border-blue-600';
+            globalModeTab.className = 'flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50';
+            firehoseModeTab.className = 'flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50';
+            feedSearchForm.classList.remove('hidden');
+            globalSearchForm.classList.add('hidden');
+            firehoseForm.classList.add('hidden');
+            document.getElementById('results').classList.add('hidden');
+        });
+        
+        globalModeTab.addEventListener('click', () => {
+            globalModeTab.className = 'flex-1 px-6 py-3 font-semibold bg-blue-50 text-blue-600 border-b-2 border-blue-600';
+            feedModeTab.className = 'flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50';
+            firehoseModeTab.className = 'flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50';
+            globalSearchForm.classList.remove('hidden');
+            feedSearchForm.classList.add('hidden');
+            firehoseForm.classList.add('hidden');
+            document.getElementById('results').classList.add('hidden');
+        });
+        
+        firehoseModeTab.addEventListener('click', () => {
+            firehoseModeTab.className = 'flex-1 px-6 py-3 font-semibold bg-blue-50 text-blue-600 border-b-2 border-blue-600';
+            feedModeTab.className = 'flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50';
+            globalModeTab.className = 'flex-1 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-50';
+            firehoseForm.classList.remove('hidden');
+            feedSearchForm.classList.add('hidden');
+            globalSearchForm.classList.add('hidden');
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('postsContainer').innerHTML = '';
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('noResults').classList.add('hidden');
+        });
+        
+        // Fetch posts from feed
+        async function fetchFeedPosts(feedUri, limit = 50, cursor = null) {
+            try {
+                let url = `${BLUESKY_API}/xrpc/app.bsky.feed.getFeed?feed=${encodeURIComponent(feedUri)}&limit=${limit}`;
+                if (cursor) {
+                    url += `&cursor=${cursor}`;
+                }
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching feed:', error);
+                throw error;
+            }
+        }
+        
+        // Global search posts
+        async function searchPostsGlobal(query, limit = 25, sort = 'latest') {
+            const url = `${BLUESKY_API}/xrpc/app.bsky.feed.searchPosts?q=${encodeURIComponent(query)}&limit=${limit}&sort=${sort}`;
+            
+            // Try multiple CORS proxy services
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                `https://corsproxy.io/?${encodeURIComponent(url)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            ];
+            
+            // First, try direct request
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data;
+                }
+            } catch (error) {
+                console.log('Direct request failed, trying proxies...');
+            }
+            
+            // Try each proxy in sequence
+            for (const proxyUrl of proxies) {
+                try {
+                    console.log('Trying proxy:', proxyUrl);
+                    const response = await fetch(proxyUrl);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        // Validate that we got actual Bluesky data
+                        if (data && (data.posts || data.feed)) {
+                            return data;
+                        }
+                    }
+                } catch (error) {
+                    console.log('Proxy failed:', proxyUrl, error);
+                    continue;
+                }
+            }
+            
+            // If all methods fail, throw error
+            throw new Error('Unable to fetch search results. All proxy services failed. Please try Feed Search mode instead or try again later.');
+        }
+        
+        // Search posts for topic
+        function searchPosts(posts, topic, minLikes, minReposts) {
+            const searchTerms = topic.toLowerCase().split(' ').filter(t => t.length > 0);
+            
+            return posts.filter(item => {
+                const post = item.post;
+                const text = post.record?.text?.toLowerCase() || '';
+                const likes = post.likeCount || 0;
+                const reposts = post.repostCount || 0;
+                
+                const matchesTopic = searchTerms.some(term => text.includes(term));
+                const meetsEngagement = likes >= minLikes && reposts >= minReposts;
+                
+                return matchesTopic && meetsEngagement;
+            });
+        }
+        
+        // Create post card HTML
+        function createPostCard(item, index) {
+            const post = item.post;
+            const author = post.author;
+            const text = post.record?.text || '';
+            const likes = post.likeCount || 0;
+            const reposts = post.repostCount || 0;
+            const replies = post.replyCount || 0;
+            
+            const postUrl = `https://bsky.app/profile/${author.did}/post/${post.uri.split('/').pop()}`;
+            
+            const date = new Date(post.indexedAt);
+            const timeAgo = getTimeAgo(date);
+            
+            return `
+                <div class="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                    <div class="flex items-start space-x-3">
+                        <img src="${author.avatar || 'https://via.placeholder.com/48'}" 
+                             alt="${author.displayName || author.handle}" 
+                             class="w-12 h-12 rounded-full">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="font-semibold text-gray-900">${escapeHtml(author.displayName || author.handle)}</p>
+                                    <p class="text-sm text-gray-500">@${escapeHtml(author.handle)}</p>
+                                </div>
+                                <span class="text-sm text-gray-500">${timeAgo}</span>
+                            </div>
+                            <p class="mt-2 text-gray-800 whitespace-pre-wrap">${escapeHtml(text)}</p>
+                            <div class="mt-3 flex items-center space-x-4 text-sm text-gray-600">
+                                <span class="flex items-center">
+                                    <i data-feather="heart" class="w-4 h-4 mr-1"></i> ${likes}
+                                </span>
+                                <span class="flex items-center">
+                                    <i data-feather="repeat" class="w-4 h-4 mr-1"></i> ${reposts}
+                                </span>
+                                <span class="flex items-center">
+                                    <i data-feather="message-circle" class="w-4 h-4 mr-1"></i> ${replies}
+                                </span>
+                            </div>
+                            <div class="mt-3 flex space-x-2">
+                                <a href="${postUrl}" target="_blank" 
+                                   class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 flex items-center">
+                                    <i data-feather="external-link" class="w-3 h-3 mr-1"></i> Open
+                                </a>
+                                <button onclick="copyPostUrl('${postUrl}')" 
+                                        class="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400 flex items-center">
+                                    <i data-feather="copy" class="w-3 h-3 mr-1"></i> Copy URL
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            
+            if (seconds < 60) return `${seconds}s ago`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+        
+        function copyPostUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Post URL copied to clipboard!');
+            });
+        }
+        
+        function showResults(posts) {
+            document.getElementById('loading').classList.add('hidden');
+            
+            if (posts.length === 0) {
+                document.getElementById('noResults').classList.remove('hidden');
+            } else {
+                const container = document.getElementById('postsContainer');
+                container.innerHTML = '';
+                posts.forEach((item, index) => {
+                    container.innerHTML += createPostCard(item, index);
+                });
+                
+                document.getElementById('resultCount').textContent = posts.length;
+                
+                currentResults = posts.map(item => {
+                    const post = item.post;
+                    return `https://bsky.app/profile/${post.author.did}/post/${post.uri.split('/').pop()}`;
+                });
+                
+                feather.replace();
+            }
+        }
+        
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            const container = document.getElementById('postsContainer');
+            container.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p class="text-red-800">
+                        <strong>Error:</strong> ${message}
+                    </p>
+                    <p class="mt-2 text-sm text-red-700">
+                        Please check your input and try again.
+                    </p>
+                </div>
+            `;
+            feather.replace();
+        }
+        
+        // Store results for copy all function
+        let currentResults = [];
+        
+        // Feed search form submission
+        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const feedUri = document.getElementById('feedUri').value;
+            const topic = document.getElementById('topic').value;
+            const limit = parseInt(document.getElementById('limit').value);
+            const minLikes = parseInt(document.getElementById('minLikes').value);
+            const minReposts = parseInt(document.getElementById('minReposts').value);
+            
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('postsContainer').innerHTML = '';
+            document.getElementById('noResults').classList.add('hidden');
+            
+            try {
+                const feedData = await fetchFeedPosts(feedUri, limit);
+                
+                if (!feedData.feed || feedData.feed.length === 0) {
+                    throw new Error('No posts found in feed');
+                }
+                
+                const matchingPosts = searchPosts(feedData.feed, topic, minLikes, minReposts);
+                showResults(matchingPosts);
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+        
+        // Global search form submission
+        document.getElementById('globalForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const query = document.getElementById('globalQuery').value;
+            const limit = parseInt(document.getElementById('globalLimit').value);
+            const minLikes = parseInt(document.getElementById('globalMinLikes').value);
+            const sortOrder = document.getElementById('sortOrder').value;
+            
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('postsContainer').innerHTML = '';
+            document.getElementById('noResults').classList.add('hidden');
+            
+            try {
+                const searchData = await searchPostsGlobal(query, limit, sortOrder);
+                
+                if (!searchData.posts || searchData.posts.length === 0) {
+                    throw new Error('No posts found');
+                }
+                
+                const filteredPosts = searchData.posts
+                    .filter(item => (item.post.likeCount || 0) >= minLikes)
+                    .map(post => ({ post }));
+                
+                showResults(filteredPosts);
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+        
+        // Copy all button handler
+        document.getElementById('copyAll').addEventListener('click', function() {
+            if (currentResults.length > 0) {
+                const allUrls = currentResults.join('\n');
+                navigator.clipboard.writeText(allUrls).then(() => {
+                    alert(`Copied ${currentResults.length} post URLs to clipboard!`);
+                });
+            }
+        });
+        
+        // Firehose WebSocket functionality
+        let firehoseWS = null;
+        let firehoseEventCount = 0;
+        let firehoseEvents = [];
+        
+        function updateStreamStatus(status, color) {
+            const statusEl = document.getElementById('streamStatus');
+            statusEl.innerHTML = `
+                <div class="w-2 h-2 rounded-full bg-${color}-500 mr-2 animate-pulse"></div>
+                <span class="text-sm">${status}</span>
+            `;
+        }
+        
+        function startFirehose() {
+            const collection = document.getElementById('collectionType').value;
+            const filterKeywords = document.getElementById('firehoseFilter').value
+                .split(',')
+                .map(k => k.trim().toLowerCase())
+                .filter(k => k.length > 0);
+            
+            let wsUrl = 'wss://jetstream2.us-east.bsky.network/subscribe';
+            if (collection) {
+                wsUrl += `?wantedCollections=${collection}`;
+            }
+            
+            try {
+                firehoseWS = new WebSocket(wsUrl);
+                
+                firehoseWS.onopen = () => {
+                    updateStreamStatus('Connected', 'green');
+                    document.getElementById('startFirehose').disabled = true;
+                    document.getElementById('stopFirehose').disabled = false;
+                    console.log('Firehose connected');
+                };
+                
+                firehoseWS.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        // Only process post events for display
+                        if (data.commit?.collection === 'app.bsky.feed.post' && data.commit?.record) {
+                            const text = data.commit.record.text || '';
+                            
+                            // Apply keyword filter if set
+                            if (filterKeywords.length > 0) {
+                                const textLower = text.toLowerCase();
+                                const matches = filterKeywords.some(keyword => textLower.includes(keyword));
+                                if (!matches) return;
+                            }
+                            
+                            firehoseEventCount++;
+                            document.getElementById('eventCount').textContent = `Events: ${firehoseEventCount}`;
+                            
+                            // Create a post object similar to our other formats
+                            const post = {
+                                post: {
+                                    uri: `at://${data.did}/app.bsky.feed.post/${data.commit.rkey}`,
+                                    author: {
+                                        did: data.did,
+                                        handle: data.did, // We don't have handle in real-time, use DID
+                                        displayName: data.did.substring(0, 20) + '...',
+                                        avatar: 'https://via.placeholder.com/48'
+                                    },
+                                    record: {
+                                        text: text,
+                                        createdAt: data.time_us ? new Date(data.time_us / 1000) : new Date()
+                                    },
+                                    likeCount: 0,
+                                    repostCount: 0,
+                                    replyCount: 0,
+                                    indexedAt: data.time_us ? new Date(data.time_us / 1000).toISOString() : new Date().toISOString()
+                                }
+                            };
+                            
+                            // Add to beginning of array (newest first)
+                            firehoseEvents.unshift(post);
+                            
+                            // Keep only last 100 events to prevent memory issues
+                            if (firehoseEvents.length > 100) {
+                                firehoseEvents = firehoseEvents.slice(0, 100);
+                            }
+                            
+                            // Update display
+                            displayFirehoseEvents();
+                        }
+                    } catch (error) {
+                        console.error('Error parsing firehose message:', error);
+                    }
+                };
+                
+                firehoseWS.onerror = (error) => {
+                    console.error('Firehose error:', error);
+                    updateStreamStatus('Error', 'red');
+                };
+                
+                firehoseWS.onclose = () => {
+                    updateStreamStatus('Disconnected', 'gray');
+                    document.getElementById('startFirehose').disabled = false;
+                    document.getElementById('stopFirehose').disabled = true;
+                    console.log('Firehose disconnected');
+                };
+                
+            } catch (error) {
+                console.error('Failed to connect to firehose:', error);
+                updateStreamStatus('Connection Failed', 'red');
+            }
+        }
+        
+        function stopFirehose() {
+            if (firehoseWS) {
+                firehoseWS.close();
+                firehoseWS = null;
+            }
+        }
+        
+        function clearFirehose() {
+            firehoseEvents = [];
+            firehoseEventCount = 0;
+            document.getElementById('eventCount').textContent = 'Events: 0';
+            document.getElementById('postsContainer').innerHTML = '';
+            currentResults = [];
+        }
+        
+        function displayFirehoseEvents() {
+            const container = document.getElementById('postsContainer');
+            container.innerHTML = '';
+            
+            firehoseEvents.forEach((item, index) => {
+                container.innerHTML += createPostCard(item, index);
+            });
+            
+            document.getElementById('resultCount').textContent = firehoseEvents.length;
+            
+            // Update current results for copy functionality
+            currentResults = firehoseEvents.map(item => {
+                const post = item.post;
+                return `https://bsky.app/profile/${post.author.did}/post/${post.uri.split('/').pop()}`;
+            });
+            
+            feather.replace();
+        }
+        
+        // Firehose button handlers
+        document.getElementById('startFirehose').addEventListener('click', startFirehose);
+        document.getElementById('stopFirehose').addEventListener('click', stopFirehose);
+        document.getElementById('clearFirehose').addEventListener('click', clearFirehose);
+    </script>
+</body>
+</html>
